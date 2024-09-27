@@ -2,8 +2,9 @@
 """
 
 CONTROLLER_GEN_VERSIONS = [
-    "0.3.0",
+    "0.16.3",
     "0.4.1",
+    "0.3.0",
 ]
 CONTROLLER_GEN_DEFAULT_VERSION = CONTROLLER_GEN_VERSIONS[0]
 

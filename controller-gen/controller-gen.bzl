@@ -20,27 +20,35 @@ def _controller_gen_action(ctx, cg_cmd, outputs, output_path):
 
     # TODO: what should GOPATH be if there are no dependencies?
     go_ctx = go_context(ctx)
-    cg_info = ctx.toolchains["@rules_kubebuilder//controller-gen:toolchain"].controller_gen_info
-    gopath = ""
+    cg_info = ctx.toolchains["@rules_kubebuilder//controller-gen:toolchain_type"].controller_gen_info
+    gopath = "$(pwd)/gopath"
     if ctx.attr.gopath_dep:
         gopath = "$(pwd)/" + ctx.bin_dir.path + "/" + ctx.attr.gopath_dep[GoPath].gopath
 
+    tmp_output_dir = "tmp_output_dir"
+
     cmd = """
-          source <($PWD/{godir}/go env) &&
+          set -xe
+          eval $($PWD/{godir}/go env) &&
           export PATH=$GOROOT/bin:$PWD/{godir}:$PATH &&
           export GOPATH={gopath} &&
           mkdir -p .gocache &&
           export GOCACHE=$PWD/.gocache &&
+          mkdir -p {tmp_output_dir} &&
           {cmd} {args}
+          cp {tmp_output_dir}/zz_generated.deepcopy.go {output_path} > copy.txt
+          ls -la {output_path} > ls.txt
         """.format(
         godir = go_ctx.go.path[:-1 - len(go_ctx.go.basename)],
         gopath = gopath,
         cmd = "$(pwd)/" + cg_info.controller_gen_bin.path,
-        args = "{cg_cmd} paths={{{files}}} output:dir={outputpath}".format(
+        args = "{cg_cmd} paths={files} output:dir={tmp_output_dir}".format(
             cg_cmd = cg_cmd,
             files = ",".join([f.path for f in ctx.files.srcs]),
-            outputpath = output_path,
+            tmp_output_dir = tmp_output_dir,
         ),
+        tmp_output_dir = tmp_output_dir,
+        output_path = output_path,
     )
     ctx.actions.run_shell(
         mnemonic = "ControllerGen",
@@ -89,9 +97,10 @@ def _controller_gen_crd_impl(ctx):
     )
 
 def _controller_gen_object_impl(ctx):
+    print(ctx)
     output = ctx.actions.declare_file("zz_generated.deepcopy.go")
 
-    _controller_gen_action(ctx, "object", [output], output.dirname)
+    _controller_gen_action(ctx, "object", [output], output.path)
 
     return DefaultInfo(
         files = depset([output]),
@@ -140,7 +149,7 @@ COMMON_ATTRS = {
 }
 
 def _crd_extra_attrs():
-    ret = COMMON_ATTRS
+    ret = dict(COMMON_ATTRS)
     ret.update({
         "trivialVersions": attr.bool(
             default = True,
@@ -156,7 +165,7 @@ def _crd_extra_attrs():
     return ret
 
 def _rbac_extra_attrs():
-    ret = COMMON_ATTRS
+    ret = dict(COMMON_ATTRS)
     ret.update({
         "roleName": attr.string(
             default = "manager-role",
@@ -165,13 +174,13 @@ def _rbac_extra_attrs():
     return ret
 
 def _webhook_extra_attrs():
-    ret = COMMON_ATTRS
+    ret = dict(COMMON_ATTRS)
     return ret
 
 def _toolchains():
     return [
         "@io_bazel_rules_go//go:toolchain",
-        "@rules_kubebuilder//controller-gen:toolchain",
+        "@rules_kubebuilder//controller-gen:toolchain_type",
     ]
 
 _controller_gen_crd = rule(
@@ -184,7 +193,7 @@ _controller_gen_crd = rule(
 
 _controller_gen_object = rule(
     implementation = _controller_gen_object_impl,
-    attrs = COMMON_ATTRS,
+    attrs = dict(COMMON_ATTRS),
     toolchains = _toolchains(),
     doc = "Run the code generating portion of controller-gen. " +
           "You can use the name of this rule as part of the `srcs` attribute " +
@@ -228,7 +237,7 @@ def controller_gen_object(name, **kwargs):
 def controller_gen_rbac(name, **kwargs):
     _maybe_add_gopath_dep(name, kwargs)
     _controller_gen_rbac(name = name, **kwargs)
-    
+
 def controller_gen_webhook(name, **kwargs):
     _maybe_add_gopath_dep(name, kwargs)
     _controller_gen_webhook(name = name, **kwargs)
