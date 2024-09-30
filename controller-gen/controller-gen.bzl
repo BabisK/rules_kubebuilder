@@ -46,6 +46,7 @@ def _controller_gen_action(ctx, cg_cmd, outputs, output_path):
             files = ",".join([f.path for f in ctx.files.srcs]),
             outputpath = output_path,
         ),
+        outputpath = output_path,
     )
     ctx.actions.run_shell(
         mnemonic = "ControllerGen",
