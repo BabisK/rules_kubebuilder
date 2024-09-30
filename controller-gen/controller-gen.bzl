@@ -149,9 +149,6 @@ COMMON_ATTRS = {
 def _crd_extra_attrs():
     ret = dict(COMMON_ATTRS)
     ret.update({
-        "trivialVersions": attr.bool(
-            default = True,
-        ),
         "preserveUnknownFields": attr.bool(
             default = False,
         ),
