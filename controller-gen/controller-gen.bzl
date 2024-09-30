@@ -5,6 +5,9 @@ load("@io_bazel_rules_go//go:def.bzl", "go_context", "go_path")
 load("@io_bazel_rules_go//go/private:providers.bzl", "GoPath")
 
 def _controller_gen_action(ctx, cg_cmd, outputs, output_path):
+    print(cg_cmd)
+    print(outputs)
+    print(output_path)
     """ Run controller-gen in the sandbox.
 
     This function sets up the necessary dependencies in the Bazel sandbox to
@@ -25,8 +28,6 @@ def _controller_gen_action(ctx, cg_cmd, outputs, output_path):
     if ctx.attr.gopath_dep:
         gopath = "$(pwd)/" + ctx.bin_dir.path + "/" + ctx.attr.gopath_dep[GoPath].gopath
 
-    tmp_output_dir = "tmp_output_dir"
-
     cmd = """
           set -xe
           eval $($PWD/{godir}/go env) &&
@@ -34,21 +35,17 @@ def _controller_gen_action(ctx, cg_cmd, outputs, output_path):
           export GOPATH={gopath} &&
           mkdir -p .gocache &&
           export GOCACHE=$PWD/.gocache &&
-          mkdir -p {tmp_output_dir} &&
           {cmd} {args}
-          cp {tmp_output_dir}/zz_generated.deepcopy.go {output_path} > copy.txt
-          ls -la {output_path} > ls.txt
+          ls -la {outputpath} > ls.txt
         """.format(
         godir = go_ctx.go.path[:-1 - len(go_ctx.go.basename)],
         gopath = gopath,
         cmd = "$(pwd)/" + cg_info.controller_gen_bin.path,
-        args = "{cg_cmd} paths={files} output:dir={tmp_output_dir}".format(
+        args = "{cg_cmd} paths={files} output:dir={outputpath}".format(
             cg_cmd = cg_cmd,
             files = ",".join([f.path for f in ctx.files.srcs]),
-            tmp_output_dir = tmp_output_dir,
+            outputpath = output_path,
         ),
-        tmp_output_dir = tmp_output_dir,
-        output_path = output_path,
     )
     ctx.actions.run_shell(
         mnemonic = "ControllerGen",
@@ -100,7 +97,7 @@ def _controller_gen_object_impl(ctx):
     print(ctx)
     output = ctx.actions.declare_file("zz_generated.deepcopy.go")
 
-    _controller_gen_action(ctx, "object", [output], output.path)
+    _controller_gen_action(ctx, "object", [output], output.dirname)
 
     return DefaultInfo(
         files = depset([output]),
