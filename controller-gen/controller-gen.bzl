@@ -77,8 +77,6 @@ def _controller_gen_crd_impl(ctx):
     outputdir = ctx.actions.declare_directory(ctx.label.name)
     cg_cmd = "crd"
     extra_args = []
-    if ctx.attr.trivialVersions:
-        extra_args.append("trivialVersions=true")
     if ctx.attr.preserveUnknownFields:
         extra_args.append("preserveUnknownFields=true")
     if ctx.attr.crdVersions:
